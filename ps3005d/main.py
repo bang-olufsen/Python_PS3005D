@@ -77,12 +77,27 @@ The available commands are:
         payload=self._receive()
         return payload
 
+    def get_voltage(self):
+        """ Get current set voltage """
+        parser = argparse.ArgumentParser(
+            description=self.get_voltage.__doc__)
+        args = parser.parse_args(sys.argv[3:])
+        self._send('VSET1?')
+        payload=self._receive()
+        return payload
+
     def on(self):
         """ Turn on the power supply """
 
         parser = argparse.ArgumentParser(
             description=self.on.__doc__)
+        parser.add_argument('--confirm',action='store_true',default=False,help="Don't prompt for confirmation")
         args = parser.parse_args(sys.argv[3:])
+        if not args.confirm:
+            voltage = self.get_voltage()
+            result = raw_input('Turn on {0}V? (type YES): '.format(voltage))
+            if result != 'YES':
+                exit(1)
         self._send('OUT1')
         logger.info('Power ON')
 
