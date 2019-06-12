@@ -19,7 +19,7 @@ data = []
 
 def send(msg):
     global device
-    # msg += '\r\n'
+    msg += '\\n'
     # logger.debug('Sending: {0}'.format(msg))
     device.write(msg)
 
@@ -33,7 +33,7 @@ def receive(timeout=2000):
             payload+=c
             break
 
-    return payload
+    return payload.strip()
 
 
 def get_id():
@@ -42,12 +42,19 @@ def get_id():
     return payload
 
 def turn_on():
-    send('OUT1')
+    send('OUTPUT1')
     logger.info('Power ON')
 
 def turn_off():
-    send('OUT0')    
+    send('OUTPUT0')
     logger.info('Power OFF')
+
+def turn_off_on():
+    delay_sec = 1
+    turn_off()
+    logger.info('sleep {0} second(s)'.format(delay_sec))
+    time.sleep(delay_sec)
+    turn_on()
 
 def set_voltage(voltage):
     send('VSET1:{0}'.format(voltage))
@@ -80,13 +87,17 @@ def disable_ocp():
 def get_load_voltage():
     send('VOUT1?')
     payload=receive()
-    return payload
+    return float(payload)
 
 def get_load_current():
     send('IOUT1?')
     payload=receive()
-    return payload
+    return float(payload)
 
+def get_load_power():
+    v = get_load_voltage()
+    a = get_load_current()
+    return v * a
 
 def log(voltage,current,frequency):
     set_voltage(voltage)
@@ -117,9 +128,28 @@ def log(voltage,current,frequency):
     df = ps.DataFrame(data={'voltage':voltages,'current':currents},index=timestamps)
     return df
 
+def log_power(interval_ms, max_count):
+    i = 1
+    try:
+        while i <= max_count or max_count == 0:
+            start = datetime.now()
+            v = get_load_voltage()
+            c = get_load_current()
+            p = v * c
+            if (i == 1):
+                print('count\tdate     \ttime    \tvolt\tcurrent\tpower')
+            print('{}\t{}\t{:.3f}\t{:.3f}\t{:.3f}'.format(
+                i, start.strftime("%Y-%m-%d\t%H:%M:%S.%f"), v, c, p))
+            end = datetime.now()
+            time.sleep(interval_ms/1000)
+            i = i + 1
+    except KeyboardInterrupt:
+        print('\nInterrupted')
+
 def main():
     global device, data
-    logger.info('Starting PS3005D interface')
+    # logger.info('Starting PS3005D interface')
+    # https://sigrok.org/wiki/Korad_KAxxxxP_series#Protocol
     parser = argparse.ArgumentParser(description='PS3005D')
     parser.add_argument('port',type=str)
     parser.add_argument('cmd',type=str)
@@ -144,6 +174,9 @@ def main():
     elif args.cmd == 'off':
         turn_off()
     
+    elif args.cmd == 'off_on':
+        turn_off_on()
+    
     elif args.cmd == 'enable_ovp':
         enable_ovp()
     
@@ -158,11 +191,24 @@ def main():
     
     elif args.cmd == 'load_voltage':
         voltage = get_load_voltage()
-        print('Load Voltage: {0}'.format(voltage))
+        print('Load Voltage [V]: {0}'.format(voltage))
     
     elif args.cmd == 'load_current':
         current = get_load_current()
-        print('Load Voltage: {0}'.format(current))
+        print('Load Current [A]: {:.3f}'.format(current))
+    
+    elif args.cmd == 'load_power':
+        current = get_load_power()
+        print('Load Power [W]: {:.3f}'.format(current))
+    
+    elif args.cmd == 'log_power':
+        interval_ms = 100
+        max_count = 0 # infinite
+        if len(args.args) >= 1:
+            interval_ms = args.args[0]
+        if len(args.args) >= 2:
+            max_count = args.args[1]
+        log_power(interval_ms, max_count)
     
     elif args.cmd == 'voltage':
         if not len(args.args) == 1:
