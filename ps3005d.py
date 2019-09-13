@@ -130,16 +130,22 @@ def log(voltage,current,frequency):
 
 def log_power(interval_ms, max_count):
     i = 1
+    p_min = 1000000
+    p_max = -1
     try:
         while i <= max_count or max_count == 0:
             start = datetime.now()
             v = get_load_voltage()
             c = get_load_current()
             p = v * c
+            if (p < p_min):
+                p_min = p
+            if (p > p_max):
+                p_max = p
             if (i == 1):
-                print('count\tdate     \ttime    \tvolt\tcurrent\tpower')
-            print('{}\t{}\t{:.3f}\t{:.3f}\t{:.3f}'.format(
-                i, start.strftime("%Y-%m-%d\t%H:%M:%S.%f"), v, c, p))
+                print('Count\tDate     \tTime    \tVolt\tCurrent[A]\tPower[W]\tP_min[W]\tP_max[W]')
+            print('{}\t{}\t{:.3f}\t{:.3f}\t{:.3f}\t{:.3f}\t{:.3f}'.format(
+                i, start.strftime("%Y-%m-%d\t%H:%M:%S.%f"), v, c, p, p_min, p_max))
             end = datetime.now()
             time.sleep(interval_ms/1000)
             i = i + 1
